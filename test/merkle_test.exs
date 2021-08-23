@@ -40,14 +40,23 @@ defmodule MerkleTest do
   test "proof" do
     t = Merkle.new(["a", "b", "c"])
     pf = Merkle.proof(t, 1)
-    trc = t.root.children
-    trcl = hd(trc).children
-    assert pf == Enum.map(trcl ++ trc ++ [t.root], fn x -> x.hash end)
+    #IO.inspect t
+    #IO.inspect pf
+    [kid_l, kid_r] = t.root.children
+    [gc_l, _gc_r] = kid_l.children
+    assert pf == Enum.map([gc_l, kid_r, t.root], fn n -> n.hash end)
   end
 
   test "verify proof" do
     t = Merkle.new(["a", "b", "c"])
     pf = Merkle.proof(t, 1)
-    assert Merkle.proven?(t, 1, pf)
+    assert Merkle.proven?("b", 1, pf)
+    assert !Merkle.proven?("x", 1, pf)
+
+    # check them all
+    assert (t.blocks
+    |> Enum.with_index(fn bl,ind ->
+      Merkle.proven?(bl, ind, Merkle.proof(t, ind)) end)
+      |> Enum.all?())
   end
 end

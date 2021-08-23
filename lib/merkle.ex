@@ -55,7 +55,8 @@ defmodule Merkle do
     }
   end
 
-  def path(%Merkle{height: ht}, i) when i < (1 <<< ht) do
+  def path(%Merkle{height: ht}, i) when i < (1 <<< ht), do: path(ht, i)
+  def path(ht, i) do
     p = Integer.digits(i, 2)
     List.duplicate(0, ht-length(p)) ++ p
   end
@@ -66,18 +67,33 @@ defmodule Merkle do
   end
 
   def proof(%Merkle.Node{}, [], pf), do: pf
-  def proof(%Merkle.Node{children: children}, [b | rest], pf) do
+  def proof(%Merkle.Node{children: children}, [p | path], pf) do
     [l, r] = children
-    pf = [l.hash | [r.hash | pf]]
-    proof((if b == 0, do: l, else: r), rest, pf)
+    case p do
+      0 -> proof(l, path, [r.hash | pf])
+      1 -> proof(r, path, [l.hash | pf])
+    end
   end
 
-  # not right -- need to reverse order if the path bit was a 1
-  def proven?(_t = %Merkle{}, _ind, pf) do
-    Enum.chunk_every(pf, 3, 2, :discard)
-    |> Enum.reduce(true, fn
-      [lh,rh,nh], v ->
-        v && (hash(@node_salt <> lh <> rh) == nh)
-    end)
+  @doc """
+  Verifies that proof pf is a valid proof for block_data at index ind
+  Index is only needed so you can hash the successive items in the correct order
+  """
+  def proven?(block_data, ind, pf) when is_integer(ind) do
+    ht = length(pf) - 1
+    pth = path(ht, ind) |> Enum.reverse()
+    start = hash(@leaf_salt <> block_data)
+    proven?(start, pth, pf)
+  end
+
+  def proven?(curhash, [], [root]) do
+    curhash == root
+  end
+
+  def proven?(curhash, [p | pth], [h | pf]) do
+    case p do
+      0 -> proven?(hash(@node_salt <> curhash <> h), pth, pf)
+      1 -> proven?(hash(@node_salt <> h <> curhash), pth, pf)
+    end
   end
 end
