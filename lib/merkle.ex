@@ -16,15 +16,22 @@ defmodule Merkle do
   @node_salt <<1>>
   @default_data ""
 
-  @spec hash(binary)::binary
+  @type hash_t :: String.t()
+  @spec hash(binary()) :: hash_t()
   def hash(data) do
     :crypto.hash(:sha256, data)
     |> Base.encode16(case: :lower)
   end
 
+  @spec leaf_hash(binary()) :: hash_t()
+  def leaf_hash(data), do: hash(@leaf_salt <> data)
+
+  @spec node_hash(binary(), binary()) :: hash_t()
+  def node_hash(a, b), do: hash(@node_salt <> a <> b)
+
   defp build_leaf(data) do
       %Merkle.Node{
-        hash: hash(@leaf_salt <> data),
+        hash: leaf_hash(data),
         children: [],
       }
   end
@@ -58,7 +65,7 @@ defmodule Merkle do
     lt = build_tree(c, left)
     rt = build_tree(c, right)
     %Merkle.Node{
-      hash: hash(@node_salt <> lt.hash <> rt.hash),
+      hash: node_hash(lt.hash, rt.hash),
       children: [lt, rt],
     }
   end
@@ -70,41 +77,41 @@ defmodule Merkle do
     List.duplicate(0, ht-length(p)) ++ p
   end
 
+  @spec proof(Merkle.t(), non_neg_integer()) :: Merkle.Proof.t()
   def proof(t = %Merkle{root: root}, ind) do
     pth = path(t, ind)
-    proof(root, pth, [root.hash])
+    %Merkle.Proof{
+      id: ind,
+      hashes: _proof(root, pth, [root.hash]),
+    }
   end
 
-  @spec proof(Merkle.Node.t(), [non_neg_integer()], [binary]) :: [binary]
-  def proof(%Merkle.Node{}, [], pf), do: pf
-  def proof(%Merkle.Node{children: children}, [p | path], pf) do
+  defp _proof(%Merkle.Node{}, [], pf), do: pf
+  defp _proof(%Merkle.Node{children: children}, [p | path], pf) do
     [l, r] = children
     case p do
-      0 -> proof(l, path, [r.hash | pf])
-      1 -> proof(r, path, [l.hash | pf])
+      0 -> _proof(l, path, [r.hash | pf])
+      1 -> _proof(r, path, [l.hash | pf])
     end
   end
 
-  @spec proven?(binary, non_neg_integer(), [binary]) :: boolean
+  @spec proven?(Merkle.Proof.t(), Merkle.t(), non_neg_integer(), hash_t()) :: boolean()
   @doc """
-  Verifies that proof pf is a valid proof for block_data at index ind
-  Index is only needed so you can hash the successive items in the correct order
+  Verifies that pf correctly proves that xi is the ind-th event in Merkle tree t
   """
-  def proven?(block_data, ind, pf) when is_integer(ind) do
-    ht = length(pf) - 1
-    pth = path(ht, ind) |> Enum.reverse()
-    start = hash(@leaf_salt <> block_data)
-    proven_r?(start, pth, pf)
+  def proven?(%Merkle.Proof{id: id, hashes: hashes}, t = %Merkle{}, ind, xi) do
+    pth = path(t, ind) |> Enum.reverse()
+    id == ind && leaf_hash(Enum.at(t.blocks, ind)) == xi && _proven?(xi, pth, hashes)
   end
 
-  defp proven_r?(curhash, [], [root]) do
+  defp _proven?(curhash, [], [root]) do
     curhash == root
   end
 
-  defp proven_r?(curhash, [p | pth], [h | pf]) do
+  defp _proven?(curhash, [p | pth], [h | pf]) do
     case p do
-      0 -> proven_r?(hash(@node_salt <> curhash <> h), pth, pf)
-      1 -> proven_r?(hash(@node_salt <> h <> curhash), pth, pf)
+      0 -> _proven?(node_hash(curhash, h), pth, pf)
+      1 -> _proven?(node_hash(h, curhash), pth, pf)
     end
   end
 end

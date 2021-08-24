@@ -44,19 +44,19 @@ defmodule MerkleTest do
     #IO.inspect pf
     [kid_l, kid_r] = t.root.children
     [gc_l, _gc_r] = kid_l.children
-    assert pf == Enum.map([gc_l, kid_r, t.root], &(&1.hash))
+    assert pf.hashes == Enum.map([gc_l, kid_r, t.root], &(&1.hash))
   end
 
   test "verify proof" do
     t = Merkle.new(["a", "b", "c"])
     pf = Merkle.proof(t, 1)
-    assert Merkle.proven?("b", 1, pf)
-    assert !Merkle.proven?("x", 1, pf)
+    assert Merkle.proven?(pf, t, 1, Merkle.leaf_hash("b"))
+    assert !Merkle.proven?(pf, t, 1, Merkle.leaf_hash("x"))
 
     # check them all
     assert (t.blocks
     |> Enum.with_index(fn bl,ind ->
-      Merkle.proven?(bl, ind, Merkle.proof(t, ind)) end)
-      |> Enum.all?())
+      Merkle.proven?(Merkle.proof(t, ind), t, ind, Merkle.leaf_hash(bl))
+    end) |> Enum.all?())
   end
 end
