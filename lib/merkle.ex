@@ -77,21 +77,21 @@ defmodule Merkle do
     List.duplicate(0, ht-length(p)) ++ p
   end
 
-  @spec proof(Merkle.t(), non_neg_integer()) :: Merkle.Proof.t()
-  def proof(t = %Merkle{root: root}, ind) do
+  @spec gen_proof(Merkle.t(), non_neg_integer()) :: Merkle.Proof.t()
+  def gen_proof(t = %Merkle{root: root}, ind) do
     pth = path(t, ind)
     %Merkle.Proof{
       id: ind,
-      hashes: _proof(root, pth, [root.hash]),
+      hashes: _gen_proof(root, pth, [root.hash]),
     }
   end
 
-  defp _proof(%Merkle.Node{}, [], pf), do: pf
-  defp _proof(%Merkle.Node{children: children}, [p | path], pf) do
+  defp _gen_proof(%Merkle.Node{}, [], pf), do: pf
+  defp _gen_proof(%Merkle.Node{children: children}, [p | path], pf) do
     [l, r] = children
     case p do
-      0 -> _proof(l, path, [r.hash | pf])
-      1 -> _proof(r, path, [l.hash | pf])
+      0 -> _gen_proof(l, path, [r.hash | pf])
+      1 -> _gen_proof(r, path, [l.hash | pf])
     end
   end
 
