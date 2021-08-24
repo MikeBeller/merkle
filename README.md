@@ -1,21 +1,8 @@
 # Merkle
 
-**TODO: Add description**
+Implementation of appendable Merkle trees per Crosby ["Efficient Data
+Structures for Tamper-Evident Logging"](https://www.usenix.org/legacy/event/sec09/tech/full_papers/crosby.pdf)
 
-## Installation
+Intended for pedagogical purposes.  Not ready for prime time!
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `merkle` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:merkle, "~> 0.1.0"}
-  ]
-end
-```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/merkle](https://hexdocs.pm/merkle).
 
