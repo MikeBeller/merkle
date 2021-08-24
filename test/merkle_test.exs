@@ -44,7 +44,7 @@ defmodule MerkleTest do
     #IO.inspect pf
     [kid_l, kid_r] = t.root.children
     [gc_l, _gc_r] = kid_l.children
-    assert pf == Enum.map([gc_l, kid_r, t.root], fn n -> n.hash end)
+    assert pf == Enum.map([gc_l, kid_r, t.root], &(&1.hash))
   end
 
   test "verify proof" do
