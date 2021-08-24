@@ -6,11 +6,17 @@ defmodule Merkle do
   """
 
   defstruct [:root, :blocks, :height]
+  @type t :: %__MODULE__ {
+    root: Merkle.Node.t(),
+    blocks: [binary],
+    height: non_neg_integer(),
+  }
 
   @leaf_salt <<0>>
   @node_salt <<1>>
   @default_data ""
 
+  @spec hash(binary)::binary
   def hash(data) do
     :crypto.hash(:sha256, data)
     |> Base.encode16(case: :lower)
@@ -23,10 +29,12 @@ defmodule Merkle do
       }
   end
 
+  @spec new() :: Merkle.t()
   def new do
     new([@default_data])
   end
 
+  @spec new(list) :: Merkle.t()
   def new(blocks) when is_list(blocks) do
     ln = length(blocks)
     ht = ceil(:math.log2(ln))
@@ -55,8 +63,9 @@ defmodule Merkle do
     }
   end
 
+  @spec path(non_neg_integer | Merkle.t(), integer) :: [non_neg_integer()]
   def path(%Merkle{height: ht}, i) when i < (1 <<< ht), do: path(ht, i)
-  def path(ht, i) do
+  def path(ht, i) when is_integer(ht) do
     p = Integer.digits(i, 2)
     List.duplicate(0, ht-length(p)) ++ p
   end
@@ -66,6 +75,7 @@ defmodule Merkle do
     proof(root, pth, [root.hash])
   end
 
+  @spec proof(Merkle.Node.t(), [non_neg_integer()], [binary]) :: [binary]
   def proof(%Merkle.Node{}, [], pf), do: pf
   def proof(%Merkle.Node{children: children}, [p | path], pf) do
     [l, r] = children
@@ -75,6 +85,7 @@ defmodule Merkle do
     end
   end
 
+  @spec proven?(binary, non_neg_integer(), [binary]) :: boolean
   @doc """
   Verifies that proof pf is a valid proof for block_data at index ind
   Index is only needed so you can hash the successive items in the correct order
@@ -83,17 +94,17 @@ defmodule Merkle do
     ht = length(pf) - 1
     pth = path(ht, ind) |> Enum.reverse()
     start = hash(@leaf_salt <> block_data)
-    proven?(start, pth, pf)
+    proven_r?(start, pth, pf)
   end
 
-  def proven?(curhash, [], [root]) do
+  defp proven_r?(curhash, [], [root]) do
     curhash == root
   end
 
-  def proven?(curhash, [p | pth], [h | pf]) do
+  defp proven_r?(curhash, [p | pth], [h | pf]) do
     case p do
-      0 -> proven?(hash(@node_salt <> curhash <> h), pth, pf)
-      1 -> proven?(hash(@node_salt <> h <> curhash), pth, pf)
+      0 -> proven_r?(hash(@node_salt <> curhash <> h), pth, pf)
+      1 -> proven_r?(hash(@node_salt <> h <> curhash), pth, pf)
     end
   end
 end
