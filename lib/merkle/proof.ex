@@ -3,6 +3,6 @@ defmodule Merkle.Proof do
 
   @type t :: %__MODULE__{
     id: non_neg_integer(),
-    hashes: [Markle.hash_t()],
+    hashes: [Merkle.Tree.hash_t()],
   }
 end

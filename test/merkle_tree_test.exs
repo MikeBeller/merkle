@@ -38,8 +38,6 @@ defmodule MerkleTreeTest do
   test "proof" do
     t = Merkle.Tree.new(["a", "b", "c"])
     pf = Merkle.Tree.gen_proof(t, 1)
-    #IO.inspect t
-    #IO.inspect pf
     [kid_l, kid_r] = t.root.children
     [gc_l, _gc_r] = kid_l.children
     assert pf.hashes == Enum.map([gc_l, kid_r, t.root], &(&1.hash))
