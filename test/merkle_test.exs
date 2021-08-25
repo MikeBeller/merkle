@@ -50,13 +50,13 @@ defmodule MerkleTest do
   test "verify proof" do
     t = Merkle.new(["a", "b", "c"])
     pf = Merkle.gen_proof(t, 1)
-    assert Merkle.proven?(pf, t, 1, Merkle.leaf_hash("b"))
-    assert !Merkle.proven?(pf, t, 1, Merkle.leaf_hash("x"))
+    assert Merkle.verify_proof(pf, t, 1, Merkle.leaf_hash("b"))
+    assert !Merkle.verify_proof(pf, t, 1, Merkle.leaf_hash("x"))
 
     # check them all
     assert (t.blocks
     |> Enum.with_index(fn bl,ind ->
-      Merkle.proven?(Merkle.gen_proof(t, ind), t, ind, Merkle.leaf_hash(bl))
+      Merkle.verify_proof(Merkle.gen_proof(t, ind), t, ind, Merkle.leaf_hash(bl))
     end) |> Enum.all?())
   end
 end

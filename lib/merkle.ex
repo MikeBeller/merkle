@@ -95,23 +95,23 @@ defmodule Merkle do
     end
   end
 
-  @spec proven?(Merkle.Proof.t(), Merkle.t(), non_neg_integer(), hash_t()) :: boolean()
+  @spec verify_proof(Merkle.Proof.t(), Merkle.t(), non_neg_integer(), hash_t()) :: boolean()
   @doc """
   Verifies that pf correctly proves that xi is the ind-th event in Merkle tree t
   """
-  def proven?(%Merkle.Proof{id: id, hashes: hashes}, t = %Merkle{}, ind, xi) do
+  def verify_proof(%Merkle.Proof{id: id, hashes: hashes}, t = %Merkle{}, ind, xi) do
     pth = path(t, ind) |> Enum.reverse()
-    id == ind && leaf_hash(Enum.at(t.blocks, ind)) == xi && _proven?(xi, pth, hashes)
+    id == ind && leaf_hash(Enum.at(t.blocks, ind)) == xi && _verify_proof(xi, pth, hashes)
   end
 
-  defp _proven?(curhash, [], [root]) do
+  defp _verify_proof(curhash, [], [root]) do
     curhash == root
   end
 
-  defp _proven?(curhash, [p | pth], [h | pf]) do
+  defp _verify_proof(curhash, [p | pth], [h | pf]) do
     case p do
-      0 -> _proven?(node_hash(curhash, h), pth, pf)
-      1 -> _proven?(node_hash(h, curhash), pth, pf)
+      0 -> _verify_proof(node_hash(curhash, h), pth, pf)
+      1 -> _verify_proof(node_hash(h, curhash), pth, pf)
     end
   end
 end
