@@ -8,9 +8,14 @@ defmodule Merkle.Tree do
   defstruct [:root, :blocks, :height]
   @type t :: %__MODULE__ {
     root: Merkle.Node.t(),
-    blocks: [binary],
+    blocks: %{optional(non_neg_integer()) => binary()},
     height: non_neg_integer(),
   }
+
+  @spec size(Merkle.Tree.t()) :: non_neg_integer
+  def size(%Merkle.Tree{height: height}) do
+    1 <<< height
+  end
 
   @leaf_salt <<0>>
   @node_salt <<1>>
@@ -46,11 +51,15 @@ defmodule Merkle.Tree do
     ln = length(blocks)
     ht = ceil(:math.log2(ln))
     full_ln = 1 <<< ht
+
     # pad out the blocks to length full_ln
     all_blocks = blocks ++ List.duplicate("", full_ln - ln)
+    block_map = all_blocks
+    |> Enum.with_index(fn el,ind -> {ind, el} end)
+    |> Enum.into(%{})
     %Merkle.Tree{
       root: build_tree(full_ln, all_blocks),
-      blocks: all_blocks,
+      blocks: block_map,
       height: ht,
     }
   end
@@ -99,9 +108,9 @@ defmodule Merkle.Tree do
   @doc """
   Verifies that pf correctly proves that xi is the ind-th event in Merkle tree t
   """
-  def verify_proof(%Merkle.Proof{id: id, hashes: hashes}, t = %Merkle.Tree{}, ind, xi) do
+  def verify_proof(%Merkle.Proof{id: id, hashes: hashes}, t = %Merkle.Tree{blocks: blocks}, ind, xi) do
     pth = path(t, ind) |> Enum.reverse()
-    id == ind && leaf_hash(Enum.at(t.blocks, ind)) == xi && _verify_proof(xi, pth, hashes)
+    id == ind && leaf_hash(Map.get(blocks, ind)) == xi && _verify_proof(xi, pth, hashes)
   end
 
   defp _verify_proof(curhash, [], [root]) do
