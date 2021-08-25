@@ -61,4 +61,25 @@ defmodule MerkleTreeTest do
       )
     end)
   end
+
+  test "add" do
+    t = Merkle.Tree.new(["a", "b", "c"])
+    pf = Merkle.Tree.gen_proof(t, 1)
+    assert Merkle.Tree.verify_proof(pf, t, 1, Merkle.Tree.leaf_hash("b"))
+    t2 = Merkle.Tree.add(t, "d")
+    pf2 = Merkle.Tree.gen_proof(t2, 3)
+    assert Merkle.Tree.verify_proof(pf2, t2, 3, Merkle.Tree.leaf_hash("d"))
+  end
+
+  test "add when full" do
+    t = Merkle.Tree.new(["a", "b", "c", "d"])
+    pf = Merkle.Tree.gen_proof(t, 1)
+    assert Merkle.Tree.verify_proof(pf, t, 1, Merkle.Tree.leaf_hash("b"))
+
+    t2 = Merkle.Tree.add(t, "e")
+    assert t2.size == 5
+    assert t2.height == t.height + 1
+    pf2 = Merkle.Tree.gen_proof(t2, 4)
+    assert Merkle.Tree.verify_proof(pf2, t2, 4, Merkle.Tree.leaf_hash("e"))
+  end
 end

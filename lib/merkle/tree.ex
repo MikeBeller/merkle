@@ -15,6 +15,8 @@ defmodule Merkle.Tree do
   @leaf_salt <<0>>
   @node_salt <<1>>
   @default_data ""
+  @default_hash :crypto.hash(:sha256, @leaf_salt <> @default_data)
+  |> Base.encode16(case: :lower)
 
   @type hash_t :: String.t()
   @spec hash(binary()) :: hash_t()
@@ -36,6 +38,13 @@ defmodule Merkle.Tree do
       }
   end
 
+  defp build_node(l, r) do
+    %Merkle.Node{
+      hash: node_hash(l.hash, r.hash),
+      children: [l, r],
+    }
+  end
+
   @spec new() :: Merkle.Tree.t()
   def new do
     new([@default_data])
@@ -48,17 +57,12 @@ defmodule Merkle.Tree do
     full_ln = 1 <<< ht
 
     # pad out the blocks to length full_ln
-    all_blocks = blocks ++ List.duplicate("", full_ln - ln)
+    all_blocks = blocks ++ List.duplicate(@default_data, full_ln - ln)
     %Merkle.Tree{
       root: build_tree(full_ln, all_blocks),
       height: ht,
       size: ln,
     }
-  end
-
-  @spec add(Merkle.Tree.t(), binary()) :: Merkle.Tree.t()
-  def add(t, _block) do
-    t
   end
 
   defp build_tree(1, [data]) do
@@ -70,10 +74,7 @@ defmodule Merkle.Tree do
     [left, right] = Enum.chunk_every(blocks, c)
     lt = build_tree(c, left)
     rt = build_tree(c, right)
-    %Merkle.Node{
-      hash: node_hash(lt.hash, rt.hash),
-      children: [lt, rt],
-    }
+    build_node(lt, rt)
   end
 
   @spec path(non_neg_integer | Merkle.Tree.t(), integer) :: [non_neg_integer()]
@@ -93,11 +94,11 @@ defmodule Merkle.Tree do
   end
 
   defp _gen_proof(%Merkle.Node{}, [], pf), do: pf
-  defp _gen_proof(%Merkle.Node{children: children}, [p | path], pf) do
+  defp _gen_proof(%Merkle.Node{children: children}, [p | pth], pf) do
     [l, r] = children
     case p do
-      0 -> _gen_proof(l, path, [r.hash | pf])
-      1 -> _gen_proof(r, path, [l.hash | pf])
+      0 -> _gen_proof(l, pth, [r.hash | pf])
+      1 -> _gen_proof(r, pth, [l.hash | pf])
     end
   end
 
@@ -119,6 +120,45 @@ defmodule Merkle.Tree do
     case p do
       0 -> _verify_proof(node_hash(curhash, h), pth, pf)
       1 -> _verify_proof(node_hash(h, curhash), pth, pf)
+    end
+  end
+
+  # this only works on a full tree
+  defp double_size(t = %Merkle.Tree{size: sz, height: ht}) when sz == (1 <<< ht) do
+    dummies = List.duplicate(@default_data, sz)
+    rt = build_tree(sz, dummies)
+    root = build_node(t.root, rt)
+    %Merkle.Tree{
+      root: root,
+      height: ht + 1,
+      size: sz,
+    }
+  end
+
+  @spec add(Merkle.Tree.t(), binary()) :: Merkle.Tree.t()
+  def add(t = %Merkle.Tree{size: sz, height: ht}, block)
+    when sz == (1 <<< ht), do: add(double_size(t), block)
+
+  def add(%Merkle.Tree{root: root, size: sz, height: ht}, block) do
+    pth = path(ht, sz)
+    IO.inspect(pth)
+    %Merkle.Tree{
+      root: _add(root, pth, block),
+      height: ht,
+      size: sz + 1,
+    }
+  end
+
+  # only replace a default node -- never a filled node
+  defp _add(%Merkle.Node{hash: hsh}, [], block) when hsh == @default_hash do
+    build_leaf(block)
+  end
+
+  defp _add(%Merkle.Node{children: children}, [p | pth], block) do
+    [l, r] = children
+    case p do
+      0 -> build_node(_add(l, pth, block), r)
+      1 -> build_node(l, _add(r, pth, block))
     end
   end
 end
