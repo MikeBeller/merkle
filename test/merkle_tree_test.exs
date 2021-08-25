@@ -3,31 +3,28 @@ defmodule MerkleTreeTest do
   doctest Merkle.Tree
 
   test "New empty tree" do
-    assert %Merkle.Tree{root: root, blocks: blocks, height: ht} = Merkle.Tree.new()
+    assert %Merkle.Tree{root: root, height: ht} = Merkle.Tree.new()
     assert ht == 0
-    assert %Merkle.Node{hash: hash, children: []} = root
-    assert %{0 => ""} = blocks
-    assert hash == :crypto.hash(:sha256, <<0>> <> "") |> Base.encode16(case: :lower)
+    assert %Merkle.Node{hash: hsh, children: []} = root
+    assert hsh == Merkle.Tree.leaf_hash("")
   end
 
   test "New one-item tree" do
-    assert %Merkle.Tree{root: root, blocks: blocks, height: ht} = Merkle.Tree.new(["foobar"])
+    assert %Merkle.Tree{root: root, height: ht} = Merkle.Tree.new(["foobar"])
     assert ht == 0
-    assert %Merkle.Node{hash: hash, children: []} = root
-    assert %{0 => "foobar"} = blocks
-    assert hash == :crypto.hash(:sha256, <<0>> <> "foobar") |> Base.encode16(case: :lower)
+    assert %Merkle.Node{hash: hsh, children: []} = root
+    assert hsh == Merkle.Tree.leaf_hash("foobar")
   end
 
   test "Two item tree" do
-    assert %Merkle.Tree{root: _root, blocks: blocks, height: ht} = Merkle.Tree.new(["a", "b"])
-    assert ht == 1
-    assert map_size(blocks) == 2
+    t =  Merkle.Tree.new(["a", "b"])
+    assert %Merkle.Tree{root: _root, height: 1} = t
+    assert Merkle.Tree.size(t) == 2
   end
 
   test "Three item tree" do
-    assert %Merkle.Tree{root: _root, blocks: blocks, height: ht} = Merkle.Tree.new(["a", "b", "c"])
-    assert ht == 2
-    assert map_size(blocks) == 4
+    t = Merkle.Tree.new(["a", "b", "c"])
+    assert Merkle.Tree.size(t) == 4
   end
 
   test "path" do
@@ -55,13 +52,14 @@ defmodule MerkleTreeTest do
     assert !Merkle.Tree.verify_proof(pf, t, 1, Merkle.Tree.leaf_hash("x"))
 
     # check them all
-    assert 0..(Merkle.Tree.size(t)-1)
-    |> Enum.all?(fn ind ->
+    assert ["a", "b", "c", ""]
+    |> Enum.with_index(fn data,i -> {i, data} end)
+    |> Enum.all?(fn {ind,data} ->
       Merkle.Tree.verify_proof(
         Merkle.Tree.gen_proof(t, ind),
         t,
         ind,
-        Merkle.Tree.leaf_hash(Map.get(t.blocks,ind))
+        Merkle.Tree.leaf_hash(data)
       )
     end)
   end

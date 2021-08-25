@@ -5,10 +5,9 @@ defmodule Merkle.Tree do
   Implementation of a Merkle tree data structure
   """
 
-  defstruct [:root, :blocks, :height]
+  defstruct [:root, :height]
   @type t :: %__MODULE__ {
     root: Merkle.Node.t(),
-    blocks: %{optional(non_neg_integer()) => binary()},
     height: non_neg_integer(),
   }
 
@@ -54,12 +53,8 @@ defmodule Merkle.Tree do
 
     # pad out the blocks to length full_ln
     all_blocks = blocks ++ List.duplicate("", full_ln - ln)
-    block_map = all_blocks
-    |> Enum.with_index(fn el,ind -> {ind, el} end)
-    |> Enum.into(%{})
     %Merkle.Tree{
       root: build_tree(full_ln, all_blocks),
-      blocks: block_map,
       height: ht,
     }
   end
@@ -108,13 +103,14 @@ defmodule Merkle.Tree do
   @doc """
   Verifies that pf correctly proves that xi is the ind-th event in Merkle tree t
   """
-  def verify_proof(%Merkle.Proof{id: id, hashes: hashes}, t = %Merkle.Tree{blocks: blocks}, ind, xi) do
+  def verify_proof(%Merkle.Proof{id: proof_ind, hashes: hashes}, t = %Merkle.Tree{root: root}, ind, xi) do
     pth = path(t, ind) |> Enum.reverse()
-    id == ind && leaf_hash(Map.get(blocks, ind)) == xi && _verify_proof(xi, pth, hashes)
+    proof_root = List.last(hashes)
+    proof_root == root.hash && proof_ind == ind && _verify_proof(xi, pth, hashes)
   end
 
-  defp _verify_proof(curhash, [], [root]) do
-    curhash == root
+  defp _verify_proof(curhash, [], [root_hash]) do
+    curhash == root_hash
   end
 
   defp _verify_proof(curhash, [p | pth], [h | pf]) do
