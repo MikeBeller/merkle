@@ -5,16 +5,12 @@ defmodule Merkle.Tree do
   Implementation of a Merkle tree data structure
   """
 
-  defstruct [:root, :height]
+  defstruct [:root, :height, :size]
   @type t :: %__MODULE__ {
     root: Merkle.Node.t(),
     height: non_neg_integer(),
+    size: non_neg_integer(),
   }
-
-  @spec size(Merkle.Tree.t()) :: non_neg_integer
-  def size(%Merkle.Tree{height: height}) do
-    1 <<< height
-  end
 
   @leaf_salt <<0>>
   @node_salt <<1>>
@@ -56,7 +52,13 @@ defmodule Merkle.Tree do
     %Merkle.Tree{
       root: build_tree(full_ln, all_blocks),
       height: ht,
+      size: ln,
     }
+  end
+
+  @spec add(Merkle.Tree.t(), binary()) :: Merkle.Tree.t()
+  def add(t, _block) do
+    t
   end
 
   defp build_tree(1, [data]) do
