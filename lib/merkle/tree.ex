@@ -79,42 +79,42 @@ defmodule Merkle.Tree do
     List.duplicate(0, ht-length(p)) ++ p
   end
 
-  @spec gen_proof(Merkle.Tree.t(), non_neg_integer()) :: Merkle.Proof.t()
-  def gen_proof(t = %Merkle.Tree{root: root}, ind) do
+  @spec gen_membership_proof(Merkle.Tree.t(), non_neg_integer()) :: Merkle.Proof.t()
+  def gen_membership_proof(t = %Merkle.Tree{root: root}, ind) do
     pth = path(t, ind)
     %Merkle.Proof{
       id: ind,
-      hashes: _gen_proof(root, pth, [root.hash]),
+      hashes: _gen_membership_proof(root, pth, [root.hash]),
     }
   end
 
-  defp _gen_proof(%Merkle.Node{}, [], pf), do: pf
-  defp _gen_proof(%Merkle.Node{children: children}, [p | pth], pf) do
+  defp _gen_membership_proof(%Merkle.Node{}, [], pf), do: pf
+  defp _gen_membership_proof(%Merkle.Node{children: children}, [p | pth], pf) do
     [l, r] = children
     case p do
-      0 -> _gen_proof(l, pth, [r.hash | pf])
-      1 -> _gen_proof(r, pth, [l.hash | pf])
+      0 -> _gen_membership_proof(l, pth, [r.hash | pf])
+      1 -> _gen_membership_proof(r, pth, [l.hash | pf])
     end
   end
 
-  @spec verify_proof(Merkle.Proof.t(), Merkle.Tree.t(), non_neg_integer(), hash_t()) :: boolean()
+  @spec verify_membership_proof(Merkle.Proof.t(), Merkle.Tree.t(), non_neg_integer(), hash_t()) :: boolean()
   @doc """
   Verifies that pf correctly proves that xi is the ind-th event in Merkle tree t
   """
-  def verify_proof(%Merkle.Proof{id: proof_ind, hashes: hashes}, t = %Merkle.Tree{root: root}, ind, xi) do
+  def verify_membership_proof(%Merkle.Proof{id: proof_ind, hashes: hashes}, t = %Merkle.Tree{root: root}, ind, xi) do
     pth = path(t, ind) |> Enum.reverse()
     proof_root = List.last(hashes)
-    proof_root == root.hash && proof_ind == ind && _verify_proof(xi, pth, hashes)
+    proof_root == root.hash && proof_ind == ind && _verify_membership_proof(xi, pth, hashes)
   end
 
-  defp _verify_proof(curhash, [], [root_hash]) do
+  defp _verify_membership_proof(curhash, [], [root_hash]) do
     curhash == root_hash
   end
 
-  defp _verify_proof(curhash, [p | pth], [h | pf]) do
+  defp _verify_membership_proof(curhash, [p | pth], [h | pf]) do
     case p do
-      0 -> _verify_proof(node_hash(curhash, h), pth, pf)
-      1 -> _verify_proof(node_hash(h, curhash), pth, pf)
+      0 -> _verify_membership_proof(node_hash(curhash, h), pth, pf)
+      1 -> _verify_membership_proof(node_hash(h, curhash), pth, pf)
     end
   end
 
