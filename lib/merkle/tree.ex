@@ -45,15 +45,10 @@ defmodule Merkle.Tree do
     }
   end
 
-  @spec new() :: Merkle.Tree.t()
-  def new do
-    new([@default_data])
-  end
-
-  @spec new(list) :: Merkle.Tree.t()
-  def new(blocks) when is_list(blocks) do
+  @spec new([binary()]) :: Merkle.Tree.t()
+  def new(blocks \\ []) do
     ln = length(blocks)
-    ht = ceil(:math.log2(ln))
+    ht = if ln == 0, do: 1, else: ceil(:math.log2(ln))
     full_ln = 1 <<< ht
 
     # pad out the blocks to length full_ln

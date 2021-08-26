@@ -1,12 +1,10 @@
 defmodule MerkleTreeTest do
   use ExUnit.Case
-  doctest Merkle.Tree
 
   test "New empty tree" do
-    assert %Merkle.Tree{root: root, height: ht} = Merkle.Tree.new()
-    assert ht == 0
-    assert %Merkle.Node{hash: hsh, children: []} = root
-    assert hsh == Merkle.Tree.leaf_hash("")
+    assert %Merkle.Tree{root: root, height: ht, size: sz} = Merkle.Tree.new()
+    assert ht == 1
+    assert sz == 0
   end
 
   test "New one-item tree" do
