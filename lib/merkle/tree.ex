@@ -97,24 +97,23 @@ defmodule Merkle.Tree do
     end
   end
 
-  @spec verify_membership_proof(Merkle.Proof.t(), Merkle.Tree.t(), non_neg_integer(), hash_t()) :: boolean()
+  @spec verify_membership_proof(Merkle.Proof.t(), hash_t(), non_neg_integer(), hash_t()) :: boolean()
   @doc """
   Verifies that pf correctly proves that xi is the ind-th event in Merkle tree t
   """
-  def verify_membership_proof(%Merkle.Proof{id: proof_ind, hashes: hashes}, t = %Merkle.Tree{root: root}, ind, xi) do
-    pth = path(t, ind) |> Enum.reverse()
+  def verify_membership_proof(%Merkle.Proof{id: proof_ind, hashes: hashes}, root_hash, ind, xi) do
     proof_root = List.last(hashes)
-    proof_root == root.hash && proof_ind == ind && _verify_membership_proof(xi, pth, hashes)
+    proof_root == root_hash && proof_ind == ind && _verify_membership_proof(xi, ind, hashes)
   end
 
-  defp _verify_membership_proof(curhash, [], [root_hash]) do
+  defp _verify_membership_proof(curhash, _n, [root_hash]) do
     curhash == root_hash
   end
 
-  defp _verify_membership_proof(curhash, [p | pth], [h | pf]) do
-    case p do
-      0 -> _verify_membership_proof(node_hash(curhash, h), pth, pf)
-      1 -> _verify_membership_proof(node_hash(h, curhash), pth, pf)
+  defp _verify_membership_proof(curhash, n, [h | hashes]) do
+    case n &&& 1 do
+      0 -> _verify_membership_proof(node_hash(curhash, h), n >>> 1, hashes)
+      1 -> _verify_membership_proof(node_hash(h, curhash), n >>> 1, hashes)
     end
   end
 
@@ -136,7 +135,6 @@ defmodule Merkle.Tree do
 
   def add(%Merkle.Tree{root: root, size: sz, height: ht}, block) do
     pth = path(ht, sz)
-    IO.inspect(pth)
     %Merkle.Tree{
       root: _add(root, pth, block),
       height: ht,
@@ -154,6 +152,68 @@ defmodule Merkle.Tree do
     case p do
       0 -> build_node(_add(l, pth, block), r)
       1 -> build_node(l, _add(r, pth, block))
+    end
+  end
+
+  @spec gen_incremental_proof(Merkle.Tree.t(), non_neg_integer(), non_neg_integer()) :: Merkle.IProof.t()
+  @doc """
+  Return a proof that version i of tree t is consistent with version j, where j >= i
+  """
+  def gen_incremental_proof(t = %Merkle.Tree{}, i, j) do
+    skel = _skeleton(t, i, j)
+    %Merkle.IProof{
+      i: i,
+      j: j,
+      hashes: flatten(skel),
+    }
+  end
+
+  defp flatten(n, r \\ []) do
+    case n do
+      %Merkle.Node{hash: hsh, children: []} -> List.flatten([hsh | r]) |> Enum.reverse()
+      %Merkle.Node{hash: hsh, children: [l, r]} -> [hsh | [flatten(l) | flatten(r)]]
+    end
+  end
+
+  defp _skeleton(t = %Merkle.Tree{}, i, j) do
+    pi = path(t, i)
+    pj = path(t, j)
+    _skeleton(t.root, pi, pj)
+  end
+
+  defp _skeleton(node, [], []), do: node
+  defp _skeleton(node, [i | pi], [j | pj]) do
+    [l, r] = node.children
+    case {i,j} do
+      {0, 0} -> build_node(_skeleton(l, pi, pj), stub_node(r))
+      {1, 1} -> build_node(stub_node(l), _skeleton(r, pi, pj))
+      {0, 1} -> build_node(_skeleton_left(l, pi), _skeleton_right(r, pj))
+      {1, 0} -> raise ArgumentError
+    end
+  end
+
+  defp _skeleton_left(node, []), do: node
+  defp _skeleton_left(node, [i | pi]) do
+    [l, r] = node.children
+    case i do
+      0 -> build_node(_skeleton_left(l, pi), stub_node(r))
+      1 -> build_node(stub_node(l), _skeleton_left(r, pi))
+    end
+  end
+
+  defp _skeleton_right(node, []), do: node
+  defp _skeleton_right(node, [i | pi]) do
+    [l, r] = node.children
+    case i do
+      0 -> build_node(_skeleton_right(l, pi), stub_node(r))
+      1 -> build_node(stub_node(l), _skeleton_right(r, pi))
+    end
+  end
+
+  defp stub_node(node) do
+    case node.children do
+      [] -> node
+      [_l, _r] -> %Merkle.Node{hash: node.hash, children: []}
     end
   end
 end

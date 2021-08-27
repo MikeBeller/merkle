@@ -2,7 +2,7 @@ defmodule MerkleTreeTest do
   use ExUnit.Case
 
   test "New empty tree" do
-    assert %Merkle.Tree{root: root, height: ht, size: sz} = Merkle.Tree.new()
+    assert %Merkle.Tree{root: _root, height: ht, size: sz} = Merkle.Tree.new()
     assert ht == 1
     assert sz == 0
   end
@@ -44,8 +44,8 @@ defmodule MerkleTreeTest do
   test "verify proof" do
     t = Merkle.Tree.new(["a", "b", "c"])
     pf = Merkle.Tree.gen_membership_proof(t, 1)
-    assert Merkle.Tree.verify_membership_proof(pf, t, 1, Merkle.Tree.leaf_hash("b"))
-    assert !Merkle.Tree.verify_membership_proof(pf, t, 1, Merkle.Tree.leaf_hash("x"))
+    assert Merkle.Tree.verify_membership_proof(pf, t.root.hash, 1, Merkle.Tree.leaf_hash("b"))
+    assert !Merkle.Tree.verify_membership_proof(pf, t.root.hash, 1, Merkle.Tree.leaf_hash("x"))
 
     # check them all
     assert ["a", "b", "c", ""]
@@ -53,7 +53,7 @@ defmodule MerkleTreeTest do
     |> Enum.all?(fn {ind,data} ->
       Merkle.Tree.verify_membership_proof(
         Merkle.Tree.gen_membership_proof(t, ind),
-        t,
+        t.root.hash,
         ind,
         Merkle.Tree.leaf_hash(data)
       )
@@ -63,21 +63,28 @@ defmodule MerkleTreeTest do
   test "add" do
     t = Merkle.Tree.new(["a", "b", "c"])
     pf = Merkle.Tree.gen_membership_proof(t, 1)
-    assert Merkle.Tree.verify_membership_proof(pf, t, 1, Merkle.Tree.leaf_hash("b"))
+    assert Merkle.Tree.verify_membership_proof(pf, t.root.hash, 1, Merkle.Tree.leaf_hash("b"))
     t2 = Merkle.Tree.add(t, "d")
     pf2 = Merkle.Tree.gen_membership_proof(t2, 3)
-    assert Merkle.Tree.verify_membership_proof(pf2, t2, 3, Merkle.Tree.leaf_hash("d"))
+    assert Merkle.Tree.verify_membership_proof(pf2, t2.root.hash, 3, Merkle.Tree.leaf_hash("d"))
   end
 
   test "add when full" do
     t = Merkle.Tree.new(["a", "b", "c", "d"])
     pf = Merkle.Tree.gen_membership_proof(t, 1)
-    assert Merkle.Tree.verify_membership_proof(pf, t, 1, Merkle.Tree.leaf_hash("b"))
+    assert Merkle.Tree.verify_membership_proof(pf, t.root.hash, 1, Merkle.Tree.leaf_hash("b"))
 
     t2 = Merkle.Tree.add(t, "e")
     assert t2.size == 5
     assert t2.height == t.height + 1
     pf2 = Merkle.Tree.gen_membership_proof(t2, 4)
-    assert Merkle.Tree.verify_membership_proof(pf2, t2, 4, Merkle.Tree.leaf_hash("e"))
+    assert Merkle.Tree.verify_membership_proof(pf2, t2.root.hash, 4, Merkle.Tree.leaf_hash("e"))
+  end
+
+
+  test "incremental proof" do
+    t = Merkle.Tree.new(["a", "b", "c", "d"])
+    pf = Merkle.Tree.gen_incremental_proof(t, 1, 3)
+    IO.inspect pf
   end
 end
