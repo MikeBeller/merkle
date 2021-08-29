@@ -157,17 +157,11 @@ defmodule Merkle.Tree do
     _skeleton(t, i, j)
   end
 
-  defp flatten(n, r \\ []) do
-    case n do
-      %Merkle.Node{hash: hsh, children: []} -> List.flatten([hsh | r]) |> Enum.reverse()
-      %Merkle.Node{hash: hsh, children: [l, r]} -> [hsh | [flatten(l) | flatten(r)]]
-    end
-  end
-
   defp _skeleton(t = %Merkle.Tree{}, i, j) do
     pi = path(t, i)
     pj = path(t, j)
-    _skeleton(t.root, pi, pj)
+    _skel(t.root, pi, pj)
+    #_skeleton(t.root, pi, pj)
   end
 
   defp _skeleton(node, [], []), do: node
@@ -203,6 +197,34 @@ defmodule Merkle.Tree do
     case node.children do
       [] -> node
       [_l, _r] -> %Merkle.Node{hash: node.hash, children: []}
+    end
+  end
+
+
+  defp _skel(%Merkle.Node{children: [l,r]}, [i | pi], [j | pj]) do
+    case {i,j} do
+      {0, 0} -> _skel(l, pi, pj)
+      {1, 1} -> _skel(r, pi, pj)
+      {0, 1} -> _skel_left(l, pi) ++  _skel_right(r, pj)
+      {1, 0} -> raise ArgumentError
+    end
+  end
+
+  defp _skel_left(%Merkle.Node{children: [l,r]}, [0]), do: [r.hash]
+  defp _skel_left(%Merkle.Node{children: [l,r]}, [1]), do: [l.hash]
+  defp _skel_left(%Merkle.Node{children: [l,r]}, [i | pi]) do
+    case i do
+      0 -> _skel_left(l, pi) ++ [r.hash]
+      1 -> [l.hash | _skel_left(r, pi)]
+    end
+  end
+
+  defp _skel_right(%Merkle.Node{children: [l,r]}, [0]), do: [r.hash]
+  defp _skel_right(%Merkle.Node{children: [l,r]}, [1]), do: [l.hash]
+  defp _skel_right(%Merkle.Node{children: [l,r]}, [i | pi]) do
+    case i do
+      0 -> _skel_right(l, pi) ++ [@default_hash]
+      1 -> [l.hash | _skel_right(r, pi)]
     end
   end
 end
