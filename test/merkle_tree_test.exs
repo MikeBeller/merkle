@@ -38,7 +38,7 @@ defmodule MerkleTreeTest do
     pf = Merkle.Tree.gen_membership_proof(t, 1)
     [kid_l, kid_r] = t.root.children
     [gc_l, _gc_r] = kid_l.children
-    assert pf.hashes == Enum.map([gc_l, kid_r, t.root], &(&1.hash))
+    assert pf == Enum.map([gc_l, kid_r], &(&1.hash))
   end
 
   test "verify proof" do
@@ -81,10 +81,9 @@ defmodule MerkleTreeTest do
     assert Merkle.Tree.verify_membership_proof(pf2, t2.root.hash, 4, Merkle.Tree.leaf_hash("e"))
   end
 
-
   test "incremental proof" do
-    t = Merkle.Tree.new(["a", "b", "c", "d"])
-    pf = Merkle.Tree.gen_incremental_proof(t, 1, 3)
+    t = Merkle.Tree.new(["a", "b", "c", "d","e","f"])
+    pf = Merkle.Tree.gen_incremental_proof(t, 2, 6)
     IO.inspect pf
   end
 end

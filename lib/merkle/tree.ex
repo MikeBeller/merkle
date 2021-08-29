@@ -79,13 +79,10 @@ defmodule Merkle.Tree do
     List.duplicate(0, ht-length(p)) ++ p
   end
 
-  @spec gen_membership_proof(Merkle.Tree.t(), non_neg_integer()) :: Merkle.Proof.t()
+  @spec gen_membership_proof(Merkle.Tree.t(), non_neg_integer()) :: [hash_t()]
   def gen_membership_proof(t = %Merkle.Tree{root: root}, ind) do
     pth = path(t, ind)
-    %Merkle.Proof{
-      id: ind,
-      hashes: _gen_membership_proof(root, pth, [root.hash]),
-    }
+    _gen_membership_proof(root, pth, [])
   end
 
   defp _gen_membership_proof(%Merkle.Node{}, [], pf), do: pf
@@ -97,18 +94,15 @@ defmodule Merkle.Tree do
     end
   end
 
-  @spec verify_membership_proof(Merkle.Proof.t(), hash_t(), non_neg_integer(), hash_t()) :: boolean()
+  @spec verify_membership_proof([hash_t()], hash_t(), non_neg_integer(), hash_t()) :: boolean()
   @doc """
   Verifies that pf correctly proves that xi is the ind-th event in Merkle tree t
   """
-  def verify_membership_proof(%Merkle.Proof{id: proof_ind, hashes: hashes}, root_hash, ind, xi) do
-    proof_root = List.last(hashes)
-    proof_root == root_hash && proof_ind == ind && _verify_membership_proof(xi, ind, hashes)
+  def verify_membership_proof(hashes, root_hash, ind, xi) do
+    _verify_membership_proof(xi, ind, hashes) == root_hash
   end
 
-  defp _verify_membership_proof(curhash, _n, [root_hash]) do
-    curhash == root_hash
-  end
+  defp _verify_membership_proof(curhash, _n, []), do: curhash
 
   defp _verify_membership_proof(curhash, n, [h | hashes]) do
     case n &&& 1 do
@@ -155,17 +149,12 @@ defmodule Merkle.Tree do
     end
   end
 
-  @spec gen_incremental_proof(Merkle.Tree.t(), non_neg_integer(), non_neg_integer()) :: Merkle.IProof.t()
+  @spec gen_incremental_proof(Merkle.Tree.t(), non_neg_integer(), non_neg_integer()) :: Merkle.Node.t()
   @doc """
   Return a proof that version i of tree t is consistent with version j, where j >= i
   """
   def gen_incremental_proof(t = %Merkle.Tree{}, i, j) do
-    skel = _skeleton(t, i, j)
-    %Merkle.IProof{
-      i: i,
-      j: j,
-      hashes: flatten(skel),
-    }
+    _skeleton(t, i, j)
   end
 
   defp flatten(n, r \\ []) do
