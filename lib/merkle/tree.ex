@@ -96,10 +96,11 @@ defmodule Merkle.Tree do
 
   @spec verify_membership_proof([hash_t()], hash_t(), non_neg_integer(), hash_t()) :: boolean()
   @doc """
-  Verifies that pf correctly proves that xi is the ind-th event in Merkle tree t
+  Verifies that proof _proof_hashes_ correctly proves that _xi_ is the _ind_ event in Merkle
+  tree with root hash _root_hash_
   """
-  def verify_membership_proof(hashes, root_hash, ind, xi) do
-    _verify_membership_proof(xi, ind, hashes) == root_hash
+  def verify_membership_proof(proof_hashes, root_hash, ind, xi) do
+    _verify_membership_proof(xi, ind, proof_hashes) == root_hash
   end
 
   defp _verify_membership_proof(curhash, _n, []), do: curhash
@@ -210,21 +211,32 @@ defmodule Merkle.Tree do
     end
   end
 
-  defp _skel_left(%Merkle.Node{children: [l,r]}, [0]), do: [r.hash]
-  defp _skel_left(%Merkle.Node{children: [l,r]}, [1]), do: [l.hash]
+  defp _skel_left(%Merkle.Node{children: [l,r]}, [0]), do: [r.hash, l.hash]
+  defp _skel_left(%Merkle.Node{children: [l,r]}, [1]), do: [l.hash, r.hash]
   defp _skel_left(%Merkle.Node{children: [l,r]}, [i | pi]) do
     case i do
       0 -> _skel_left(l, pi) ++ [r.hash]
-      1 -> [l.hash | _skel_left(r, pi)]
+      1 -> _skel_left(r, pi) ++ [l.hash]
     end
   end
 
-  defp _skel_right(%Merkle.Node{children: [l,r]}, [0]), do: [r.hash]
-  defp _skel_right(%Merkle.Node{children: [l,r]}, [1]), do: [l.hash]
+  defp _skel_right(%Merkle.Node{children: [l,r]}, [0]), do: [r.hash, l.hash]
+  defp _skel_right(%Merkle.Node{children: [l,r]}, [1]), do: [l.hash, r.hash]
   defp _skel_right(%Merkle.Node{children: [l,r]}, [i | pi]) do
     case i do
-      0 -> _skel_right(l, pi) ++ [@default_hash]
+      0 -> _skel_right(l, pi) ++ [@default_hash]  # this can't be right?
       1 -> [l.hash | _skel_right(r, pi)]
     end
   end
+
+
+  @spec verify_incremental_proof([hash_t()], non_neg_integer(), non_neg_integer(), hash_t(), hash_t()) :: boolean()
+  @doc """
+  Verifies that proof _proof_hashes_ correctly proves that root hash _ci_ at index _i_ is
+  consistent with a future tree with root hash _cj_ and index _j_
+  """
+  def verify_incremental_proof(proof_hashes, i, j, ci, cj) do
+    #_verify_ci_proof(proof_hashes, i, ci)
+  end
+
 end
