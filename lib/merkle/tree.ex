@@ -45,10 +45,14 @@ defmodule Merkle.Tree do
     }
   end
 
+  defp height(ln) do
+    if ln == 0, do: 1, else: ceil(:math.log2(ln))
+  end
+
   @spec new([binary()]) :: Merkle.Tree.t()
   def new(blocks \\ []) do
     ln = length(blocks)
-    ht = if ln == 0, do: 1, else: ceil(:math.log2(ln))
+    ht = height(ln)
     full_ln = 1 <<< ht
 
     # pad out the blocks to length full_ln
@@ -211,8 +215,8 @@ defmodule Merkle.Tree do
     end
   end
 
-  defp _skel_left(%Merkle.Node{children: [l,r]}, [0]), do: [r.hash, l.hash]
-  defp _skel_left(%Merkle.Node{children: [l,r]}, [1]), do: [l.hash, r.hash]
+  defp _skel_left(%Merkle.Node{children: [l,r]}, [0]), do: [l.hash, r.hash]
+  defp _skel_left(%Merkle.Node{children: [l,r]}, [1]), do: [r.hash, l.hash]
   defp _skel_left(%Merkle.Node{children: [l,r]}, [i | pi]) do
     case i do
       0 -> _skel_left(l, pi) ++ [r.hash]
@@ -220,12 +224,12 @@ defmodule Merkle.Tree do
     end
   end
 
-  defp _skel_right(%Merkle.Node{children: [l,r]}, [0]), do: [r.hash, l.hash]
-  defp _skel_right(%Merkle.Node{children: [l,r]}, [1]), do: [l.hash, r.hash]
+  defp _skel_right(%Merkle.Node{children: [l,r]}, [0]), do: [l.hash, r.hash]
+  defp _skel_right(%Merkle.Node{children: [l,r]}, [1]), do: [r.hash, l.hash]
   defp _skel_right(%Merkle.Node{children: [l,r]}, [i | pi]) do
     case i do
-      0 -> _skel_right(l, pi) ++ [@default_hash]  # this can't be right?
-      1 -> [l.hash | _skel_right(r, pi)]
+      0 -> _skel_right(l, pi) ++ [r.hash]
+      1 -> _skel_right(r, pi) ++ [l.hash]
     end
   end
 
@@ -235,8 +239,18 @@ defmodule Merkle.Tree do
   Verifies that proof _proof_hashes_ correctly proves that root hash _ci_ at index _i_ is
   consistent with a future tree with root hash _cj_ and index _j_
   """
-  def verify_incremental_proof(proof_hashes, i, j, ci, cj) do
-    #_verify_ci_proof(proof_hashes, i, ci)
+  def verify_incremental_proof([xi| pf], i, j, ci, cj) do
+    pth = Enum.reverse(path(i, height(i)))
+    {ci_prime, pf} = _verify_ci_proof(pf, pth, xi)
+    ci_prime == ci
+  end
+
+  def _verify_ci_proof(hashes, [], hsh), do: {hsh, hashes}
+  def _verify_ci_proof([proof_hash | hashes], [p | pth], cur_hash) do
+    case p do
+      0 -> _verify_ci_proof(hashes, pth, node_hash(cur_hash, proof_hash))
+      1 -> _verify_ci_proof(hashes, pth, node_hash(proof_hash, cur_hash))
+    end
   end
 
 end

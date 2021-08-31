@@ -82,9 +82,15 @@ defmodule MerkleTreeTest do
   end
 
   test "incremental proof" do
-    t = Merkle.Tree.new(["a", "b", "c", "d","e","f"])
-    pf = Merkle.Tree.gen_incremental_proof(t, 2, 6)
-    IO.inspect t.root
+    t1 = Merkle.Tree.new(["a", "b", "c"])
+    t2 = Merkle.Tree.new(["a", "b", "c", "d","e","f","g"])
+    i = 2
+    j = 6
+    ci = t1.root.hash
+    cj = t2.root.hash
+    pf = Merkle.Tree.gen_incremental_proof(t2, i, j)
+    IO.inspect t2.root
     IO.puts "Proof: #{inspect pf}"
+    IO.inspect Merkle.Tree.verify_incremental_proof(pf, i, j, ci, cj)
   end
 end
