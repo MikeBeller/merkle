@@ -241,16 +241,23 @@ defmodule Merkle.Tree do
   """
   def verify_incremental_proof([xi| pf], i, j, ci, cj) do
     pth = Enum.reverse(path(i, height(i)))
-    {ci_prime, pf} = _verify_ci_proof(pf, pth, xi)
+    {ci_prime, pf} = _verify_ci_proof(pf, pth, xi, xi)
+    IO.inspect {ci_prime, pf}
     ci_prime == ci
   end
 
-  def _verify_ci_proof(hashes, [], hsh), do: {hsh, hashes}
-  def _verify_ci_proof([proof_hash | hashes], [p | pth], cur_hash) do
+  defp _verify_ci_proof(hashes, [], hsh), do: {hsh, hashes}
+  defp _verify_ci_proof([proof_hash | hashes], [p | pth], cur_hash) do
+    IO.puts "STEP #{cur_hash} #{proof_hash} #{p} #{inspect pth}"
     case p do
-      0 -> _verify_ci_proof(hashes, pth, node_hash(cur_hash, proof_hash))
-      1 -> _verify_ci_proof(hashes, pth, node_hash(proof_hash, cur_hash))
+      0 -> _verify_ci_proof(hashes, pth, node_hash(proof_hash, cur_hash))
+      1 -> _verify_ci_proof(hashes, pth, node_hash(cur_hash, null_hash(pth)))
     end
   end
 
+  defp null_hash([_n]), do: leaf_hash(@default_data)
+  defp null_hash([_n | pth]) do
+    nh = null_hash(pth)
+    node_hash(nh, nh)
+  end
 end
