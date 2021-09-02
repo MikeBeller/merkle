@@ -93,7 +93,8 @@ defmodule MerkleTreeTest do
     pf = Merkle.Tree.gen_incremental_proof(t2, i, j)
     IO.puts "C2"
     IO.inspect t2.root
-    IO.puts "Proof: #{inspect pf}"
+    IO.puts "Proof:"
+    IO.inspect pf
     IO.inspect Merkle.Tree.verify_incremental_proof(pf, i, j, ci, cj)
   end
 end

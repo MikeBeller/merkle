@@ -45,6 +45,13 @@ defmodule Merkle.Tree do
     }
   end
 
+  defp omitted_node(l, r) do
+    %Merkle.Node{
+      hash: "",
+      children: [l, r],
+    }
+  end
+
   defp height(ln) do
     if ln == 0, do: 1, else: ceil(:math.log2(ln))
   end
@@ -165,17 +172,17 @@ defmodule Merkle.Tree do
   defp _skeleton(t = %Merkle.Tree{}, i, j) do
     pi = path(t, i)
     pj = path(t, j)
-    _skel(t.root, pi, pj)
-    #_skeleton(t.root, pi, pj)
+    #_skel(t.root, pi, pj)
+    _skeleton(t.root, pi, pj)
   end
 
   defp _skeleton(node, [], []), do: node
   defp _skeleton(node, [i | pi], [j | pj]) do
     [l, r] = node.children
     case {i,j} do
-      {0, 0} -> build_node(_skeleton(l, pi, pj), stub_node(r))
-      {1, 1} -> build_node(stub_node(l), _skeleton(r, pi, pj))
-      {0, 1} -> build_node(_skeleton_left(l, pi), _skeleton_right(r, pj))
+      {0, 0} -> omitted_node(_skeleton(l, pi, pj), stub_node(r))
+      {1, 1} -> omitted_node(stub_node(l), _skeleton(r, pi, pj))
+      {0, 1} -> omitted_node(_skeleton_left(l, pi), _skeleton_right(r, pj))
       {1, 0} -> raise ArgumentError
     end
   end
@@ -184,8 +191,8 @@ defmodule Merkle.Tree do
   defp _skeleton_left(node, [i | pi]) do
     [l, r] = node.children
     case i do
-      0 -> build_node(_skeleton_left(l, pi), stub_node(r))
-      1 -> build_node(stub_node(l), _skeleton_left(r, pi))
+      0 -> omitted_node(_skeleton_left(l, pi), stub_node(r))
+      1 -> omitted_node(stub_node(l), _skeleton_left(r, pi))
     end
   end
 
@@ -193,71 +200,33 @@ defmodule Merkle.Tree do
   defp _skeleton_right(node, [i | pi]) do
     [l, r] = node.children
     case i do
-      0 -> build_node(_skeleton_right(l, pi), stub_node(r))
-      1 -> build_node(stub_node(l), _skeleton_right(r, pi))
+      0 -> omitted_node(_skeleton_right(l, pi), stub_node(r))
+      1 -> omitted_node(stub_node(l), _skeleton_right(r, pi))
     end
   end
 
+  # stub node representing a tree of empty entries below it
   defp stub_node(node) do
-    case node.children do
-      [] -> node
-      [_l, _r] -> %Merkle.Node{hash: node.hash, children: []}
-    end
+    %Merkle.Node{hash: node.hash, children: []}
   end
 
-
-  defp _skel(%Merkle.Node{children: [l,r]}, [i | pi], [j | pj]) do
-    case {i,j} do
-      {0, 0} -> _skel(l, pi, pj)
-      {1, 1} -> _skel(r, pi, pj)
-      {0, 1} -> _skel_left(l, pi) ++  _skel_right(r, pj)
-      {1, 0} -> raise ArgumentError
-    end
-  end
-
-  defp _skel_left(%Merkle.Node{children: [l,r]}, [0]), do: [l.hash, r.hash]
-  defp _skel_left(%Merkle.Node{children: [l,r]}, [1]), do: [r.hash, l.hash]
-  defp _skel_left(%Merkle.Node{children: [l,r]}, [i | pi]) do
-    case i do
-      0 -> _skel_left(l, pi) ++ [r.hash]
-      1 -> _skel_left(r, pi) ++ [l.hash]
-    end
-  end
-
-  defp _skel_right(%Merkle.Node{children: [l,r]}, [0]), do: [l.hash, r.hash]
-  defp _skel_right(%Merkle.Node{children: [l,r]}, [1]), do: [r.hash, l.hash]
-  defp _skel_right(%Merkle.Node{children: [l,r]}, [i | pi]) do
-    case i do
-      0 -> _skel_right(l, pi) ++ [r.hash]
-      1 -> _skel_right(r, pi) ++ [l.hash]
-    end
-  end
-
-
-  @spec verify_incremental_proof([hash_t()], non_neg_integer(), non_neg_integer(), hash_t(), hash_t()) :: boolean()
+  @spec verify_incremental_proof(Merkle.Node.t(), non_neg_integer(), non_neg_integer(), hash_t(), hash_t()) :: boolean()
   @doc """
-  Verifies that proof _proof_hashes_ correctly proves that root hash _ci_ at index _i_ is
-  consistent with a future tree with root hash _cj_ and index _j_
+  Verifies that proof skeleton _proof_ correctly proves that root hash _ci_ at index _i_ is
+  consistent with a future tree with root hash _cj_ at index _j_
   """
-  def verify_incremental_proof([xi| pf], i, j, ci, cj) do
-    pth = Enum.reverse(path(i, height(i)))
-    {ci_prime, pf} = _verify_ci_proof(pf, pth, xi, xi)
-    IO.inspect {ci_prime, pf}
+  def verify_incremental_proof(pf, i, j, ci, _cj) do
+    hj = height(j)
+    hi = height(i)
+    ci_prime = _calculate_ci_root(pf, hi, hj)
     ci_prime == ci
   end
 
-  defp _verify_ci_proof(hashes, [], hsh), do: {hsh, hashes}
-  defp _verify_ci_proof([proof_hash | hashes], [p | pth], cur_hash) do
-    IO.puts "STEP #{cur_hash} #{proof_hash} #{p} #{inspect pth}"
-    case p do
-      0 -> _verify_ci_proof(hashes, pth, node_hash(proof_hash, cur_hash))
-      1 -> _verify_ci_proof(hashes, pth, node_hash(cur_hash, null_hash(pth)))
+  defp _calculate_ci_root(%Merkle.Node{children: children, hash: hash}, hi, hj) do
+     case children do
+      [] -> hash
+      [l, r] -> node_hash(_calculate_ci_root(l, hi-1, hj-1), _calculate_ci_root(r, hi-1, hj-1))
     end
   end
 
-  defp null_hash([_n]), do: leaf_hash(@default_data)
-  defp null_hash([_n | pth]) do
-    nh = null_hash(pth)
-    node_hash(nh, nh)
-  end
 end
