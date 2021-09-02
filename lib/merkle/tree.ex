@@ -7,10 +7,12 @@ defmodule Merkle.Tree do
 
   defstruct [:root, :height, :size]
   @type t :: %__MODULE__ {
-    root: Merkle.Node.t(),
+    root: Node.t(),
     height: non_neg_integer(),
     size: non_neg_integer(),
   }
+
+  alias Merkle.Node
 
   @leaf_salt <<0>>
   @node_salt <<1>>
@@ -32,21 +34,21 @@ defmodule Merkle.Tree do
   def node_hash(a, b), do: hash(@node_salt <> a <> b)
 
   defp build_leaf(data) do
-      %Merkle.Node{
+      %Node{
         hash: leaf_hash(data),
         children: [],
       }
   end
 
   defp build_node(l, r) do
-    %Merkle.Node{
+    %Node{
       hash: node_hash(l.hash, r.hash),
       children: [l, r],
     }
   end
 
   defp omitted_node(l, r) do
-    %Merkle.Node{
+    %Node{
       hash: "",
       children: [l, r],
     }
@@ -96,8 +98,8 @@ defmodule Merkle.Tree do
     _gen_membership_proof(root, pth, [])
   end
 
-  defp _gen_membership_proof(%Merkle.Node{}, [], pf), do: pf
-  defp _gen_membership_proof(%Merkle.Node{children: children}, [p | pth], pf) do
+  defp _gen_membership_proof(%Node{}, [], pf), do: pf
+  defp _gen_membership_proof(%Node{children: children}, [p | pth], pf) do
     [l, r] = children
     case p do
       0 -> _gen_membership_proof(l, pth, [r.hash | pf])
@@ -149,11 +151,11 @@ defmodule Merkle.Tree do
   end
 
   # only replace a default node -- never a filled node
-  defp _add(%Merkle.Node{hash: hsh}, [], block) when hsh == @default_hash do
+  defp _add(%Node{hash: hsh}, [], block) when hsh == @default_hash do
     build_leaf(block)
   end
 
-  defp _add(%Merkle.Node{children: children}, [p | pth], block) do
+  defp _add(%Node{children: children}, [p | pth], block) do
     [l, r] = children
     case p do
       0 -> build_node(_add(l, pth, block), r)
@@ -161,7 +163,7 @@ defmodule Merkle.Tree do
     end
   end
 
-  @spec gen_incremental_proof(Merkle.Tree.t(), non_neg_integer(), non_neg_integer()) :: Merkle.Node.t()
+  @spec gen_incremental_proof(Merkle.Tree.t(), non_neg_integer(), non_neg_integer()) :: Node.t()
   @doc """
   Return a proof that version i of tree t is consistent with version j, where j >= i
   """
@@ -207,26 +209,42 @@ defmodule Merkle.Tree do
 
   # stub node representing a tree of empty entries below it
   defp stub_node(node) do
-    %Merkle.Node{hash: node.hash, children: []}
+    %Node{hash: node.hash, children: []}
   end
 
-  @spec verify_incremental_proof(Merkle.Node.t(), non_neg_integer(), non_neg_integer(), hash_t(), hash_t()) :: boolean()
+  @spec verify_incremental_proof(Node.t(), non_neg_integer(), non_neg_integer(), hash_t(), hash_t()) :: boolean()
   @doc """
   Verifies that proof skeleton _proof_ correctly proves that root hash _ci_ at index _i_ is
   consistent with a future tree with root hash _cj_ at index _j_
   """
   def verify_incremental_proof(pf, i, j, ci, _cj) do
-    hj = height(j)
-    hi = height(i)
-    ci_prime = _calculate_ci_root(pf, hi, hj)
+    ht = height(j+1)
+    pth = path(ht, i)
+    IO.puts "PATH IS: #{inspect pth}"
+    ci_prime = _calculate_ci_root_top(pf, pth)
     ci_prime == ci
   end
 
-  defp _calculate_ci_root(%Merkle.Node{children: children, hash: hash}, hi, hj) do
-     case children do
-      [] -> hash
-      [l, r] -> node_hash(_calculate_ci_root(l, hi-1, hj-1), _calculate_ci_root(r, hi-1, hj-1))
+  # skip top levels that are in tree Cj but not in tree Ci
+  defp _calculate_ci_root_top(%Node{children: [l,_r]}, [0 | pth]),  do: _calculate_ci_root_top(l, pth)
+  defp _calculate_ci_root_top(pf, pth), do: _calculate_ci_root(pf, pth)
+
+  defp _calculate_ci_root(%Node{hash: hash}, []), do: hash
+  defp _calculate_ci_root(%Node{hash: hash, children: []}, _pth), do: hash
+  defp _calculate_ci_root(%Node{children: [l, r]}, [p | pth]) do
+    ll = _calculate_ci_root(l, pth)
+    rr = case p do
+      0 -> default_hash(pth)
+      1 -> _calculate_ci_root(r, pth)
     end
+    h = node_hash(ll, rr)
+    IO.puts "PTH #{inspect pth} ll: #{ll} RR: #{rr} RESULT: #{h}"
+    h
   end
 
+  defp default_hash([]), do: leaf_hash(@default_data)
+  defp default_hash([_p | pth]) do
+    dh = default_hash(pth)
+    node_hash(dh, dh)
+  end
 end
