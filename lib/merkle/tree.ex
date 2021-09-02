@@ -217,12 +217,17 @@ defmodule Merkle.Tree do
   Verifies that proof skeleton _proof_ correctly proves that root hash _ci_ at index _i_ is
   consistent with a future tree with root hash _cj_ at index _j_
   """
-  def verify_incremental_proof(pf, i, j, ci, _cj) do
+  def verify_incremental_proof(pf, i, j, ci, cj) do
     ht = height(j+1)
     pth = path(ht, i)
     IO.puts "PATH IS: #{inspect pth}"
     ci_prime = _calculate_ci_root_top(pf, pth)
-    ci_prime == ci
+    IO.puts "CIPRIME: #{ci_prime} CI: #{ci}"
+    pth2 = path(ht, j)
+    IO.puts "PATH2 IS: #{inspect pth2}"
+    cj_prime = _calculate_ci_root(pf, pth2)
+    IO.puts "CJPRIME: #{cj_prime} CJ: #{cj}"
+    ci_prime == ci && cj_prime == cj
   end
 
   # skip top levels that are in tree Cj but not in tree Ci

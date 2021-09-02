@@ -95,6 +95,6 @@ defmodule MerkleTreeTest do
     IO.inspect t2.root
     IO.puts "Proof:"
     IO.inspect pf
-    assert Merkle.Tree.verify_incremental_proof(pf, i, j, ci, cj)
+    IO.puts Merkle.Tree.verify_incremental_proof(pf, i, j, ci, cj)
   end
 end
