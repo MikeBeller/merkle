@@ -220,13 +220,9 @@ defmodule Merkle.Tree do
   def verify_incremental_proof(pf, i, j, ci, cj) do
     ht = height(j+1)
     pth = path(ht, i)
-    IO.puts "PATH IS: #{inspect pth}"
     ci_prime = _calculate_ci_root_top(pf, pth)
-    IO.puts "CIPRIME: #{ci_prime} CI: #{ci}"
     pth2 = path(ht, j)
-    IO.puts "PATH2 IS: #{inspect pth2}"
-    cj_prime = _calculate_ci_root(pf, pth2)
-    IO.puts "CJPRIME: #{cj_prime} CJ: #{cj}"
+    cj_prime = _calculate_cj_root(pf, pth2)
     ci_prime == ci && cj_prime == cj
   end
 
@@ -243,7 +239,30 @@ defmodule Merkle.Tree do
       1 -> _calculate_ci_root(r, pth)
     end
     h = node_hash(ll, rr)
-    IO.puts "PTH #{inspect pth} ll: #{ll} RR: #{rr} RESULT: #{h}"
+    #IO.puts "PTH #{inspect pth} ll: #{ll} RR: #{rr} RESULT: #{h}"
+    h
+  end
+
+  defp _calculate_cj_left_root(%Node{hash: hash, children: []}), do: hash
+  defp _calculate_cj_left_root(%Node{children: [l, r]}) do
+    ll = _calculate_cj_left_root(l)
+    rr = _calculate_cj_left_root(r)
+    h = node_hash(ll, rr)
+    #IO.puts "LR ll: #{ll} RR: #{rr} RESULT: #{h}"
+    h
+
+  end
+
+  defp _calculate_cj_root(%Node{hash: hash}, []), do: hash
+  defp _calculate_cj_root(%Node{hash: hash, children: []}, _pth), do: hash
+  defp _calculate_cj_root(%Node{children: [l, r]}, [p | pth]) do
+    ll = _calculate_cj_left_root(l)
+    rr = case p do
+      0 -> default_hash(pth)
+      1 -> _calculate_cj_root(r, pth)
+    end
+    h = node_hash(ll, rr)
+    #IO.puts "PTH #{inspect pth} ll: #{ll} RR: #{rr} RESULT: #{h}"
     h
   end
 

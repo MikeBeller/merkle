@@ -88,13 +88,13 @@ defmodule MerkleTreeTest do
     j = 6
     ci = t1.root.hash
     cj = t2.root.hash
-    IO.puts "C1"
-    IO.inspect t1.root
+    #IO.puts "C1"
+    #IO.inspect t1.root
     pf = Merkle.Tree.gen_incremental_proof(t2, i, j)
-    IO.puts "C2"
-    IO.inspect t2.root
-    IO.puts "Proof:"
-    IO.inspect pf
-    IO.puts Merkle.Tree.verify_incremental_proof(pf, i, j, ci, cj)
+    #IO.puts "C2"
+    #IO.inspect t2.root
+    #IO.puts "Proof:"
+    #IO.inspect pf
+    assert Merkle.Tree.verify_incremental_proof(pf, i, j, ci, cj)
   end
 end
