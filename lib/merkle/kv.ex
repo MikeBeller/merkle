@@ -2,13 +2,15 @@ defmodule Merkle.KV do
   @moduledoc """
   An immutable key-value datastore backed by a Merkle tree
   """
-
   @type entry_t :: {binary, binary}
   @type hist_t :: %{optional(binary()) => [non_neg_integer()]}
 
+  alias Merkle.Tree
+  alias Merkle.KV
+
   defstruct [:tree, :index, :hist]
   @type t::%__MODULE__{
-    tree: Merkle.Tree.t(),
+    tree: Tree.t(),
     index: %{optional(non_neg_integer()) => entry_t()},
     hist: hist_t(),
   }
@@ -18,7 +20,7 @@ defmodule Merkle.KV do
     Map.update(hist, k, [ind], fn hs -> [ind | hs] end)
   end
 
-  @spec new([entry_t()]) :: Merkle.KV.t()
+  @spec new([entry_t()]) :: KV.t()
   def new(entries \\ []) do
     blocks = entries
     |> Enum.map(&:erlang.term_to_binary(&1))
@@ -29,8 +31,8 @@ defmodule Merkle.KV do
     |> Enum.with_index(fn ent,i -> {i,ent} end)
     |> Enum.reduce(%{}, fn {i,ent},hst -> update_hist(hst, i, ent) end)
 
-    %Merkle.KV{
-      tree: Merkle.Tree.new(blocks),
+    %KV{
+      tree: Tree.new(blocks),
       index: index,
       hist: hist,
     }
@@ -51,10 +53,10 @@ defmodule Merkle.KV do
   end
 
   @spec put(t(), entry_t()) :: t()
-  def put(kv = %Merkle.KV{tree: tree, index: index, hist: hist}, entry) do
+  def put(kv = %KV{tree: tree, index: index, hist: hist}, entry) do
     ind = size(kv) + 1
-    %Merkle.KV{
-      tree: Merkle.Tree.add(tree, :erlang.term_to_binary(entry)),
+    %KV{
+      tree: Tree.add(tree, :erlang.term_to_binary(entry)),
       index: Map.put(index, ind, entry),
       hist: update_hist(hist, ind, entry),
     }

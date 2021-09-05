@@ -5,14 +5,15 @@ defmodule Merkle.Tree do
   Implementation of a Merkle tree data structure
   """
 
+  alias Merkle.Node
+  alias Merkle.Tree
+
   defstruct [:root, :height, :size]
   @type t :: %__MODULE__ {
     root: Node.t(),
     height: non_neg_integer(),
     size: non_neg_integer(),
   }
-
-  alias Merkle.Node
 
   @leaf_salt <<0>>
   @node_salt <<1>>
@@ -58,7 +59,7 @@ defmodule Merkle.Tree do
     if ln == 0, do: 1, else: ceil(:math.log2(ln))
   end
 
-  @spec new([binary()]) :: Merkle.Tree.t()
+  @spec new([binary()]) :: Tree.t()
   def new(blocks \\ []) do
     ln = length(blocks)
     ht = height(ln)
@@ -66,7 +67,7 @@ defmodule Merkle.Tree do
 
     # pad out the blocks to length full_ln
     all_blocks = blocks ++ List.duplicate(@default_data, full_ln - ln)
-    %Merkle.Tree{
+    %Tree{
       root: build_tree(full_ln, all_blocks),
       height: ht,
       size: ln,
@@ -85,15 +86,15 @@ defmodule Merkle.Tree do
     build_node(lt, rt)
   end
 
-  @spec path(non_neg_integer | Merkle.Tree.t(), integer) :: [non_neg_integer()]
-  def path(%Merkle.Tree{height: ht}, i) when i < (1 <<< ht), do: path(ht, i)
+  @spec path(non_neg_integer | Tree.t(), integer) :: [non_neg_integer()]
+  def path(%Tree{height: ht}, i) when i < (1 <<< ht), do: path(ht, i)
   def path(ht, i) when is_integer(ht) do
     p = Integer.digits(i, 2)
     List.duplicate(0, ht-length(p)) ++ p
   end
 
-  @spec gen_membership_proof(Merkle.Tree.t(), non_neg_integer()) :: [hash_t()]
-  def gen_membership_proof(t = %Merkle.Tree{root: root}, ind) do
+  @spec gen_membership_proof(Tree.t(), non_neg_integer()) :: [hash_t()]
+  def gen_membership_proof(t = %Tree{root: root}, ind) do
     pth = path(t, ind)
     _gen_membership_proof(root, pth, [])
   end
@@ -126,24 +127,28 @@ defmodule Merkle.Tree do
   end
 
   # this only works on a full tree
-  defp double_size(t = %Merkle.Tree{size: sz, height: ht}) when sz == (1 <<< ht) do
+  defp double_size(t = %Tree{size: sz, height: ht}) when sz == (1 <<< ht) do
     dummies = List.duplicate(@default_data, sz)
     rt = build_tree(sz, dummies)
     root = build_node(t.root, rt)
-    %Merkle.Tree{
+    %Tree{
       root: root,
       height: ht + 1,
       size: sz,
     }
   end
 
-  @spec add(Merkle.Tree.t(), binary()) :: Merkle.Tree.t()
-  def add(t = %Merkle.Tree{size: sz, height: ht}, block)
+  @spec add(Tree.t(), binary()) :: Tree.t()
+
+  def add(%Tree{size: 0}, block) do
+    Tree.new([block])
+  end
+  def add(t = %Tree{size: sz, height: ht}, block)
     when sz == (1 <<< ht), do: add(double_size(t), block)
 
-  def add(%Merkle.Tree{root: root, size: sz, height: ht}, block) do
+  def add(%Tree{root: root, size: sz, height: ht}, block) do
     pth = path(ht, sz)
-    %Merkle.Tree{
+    %Tree{
       root: _add(root, pth, block),
       height: ht,
       size: sz + 1,
@@ -163,15 +168,15 @@ defmodule Merkle.Tree do
     end
   end
 
-  @spec gen_incremental_proof(Merkle.Tree.t(), non_neg_integer(), non_neg_integer()) :: Node.t()
+  @spec gen_incremental_proof(Tree.t(), non_neg_integer(), non_neg_integer()) :: Node.t()
   @doc """
   Return a proof that version i of tree t is consistent with version j, where j >= i
   """
-  def gen_incremental_proof(t = %Merkle.Tree{}, i, j) do
+  def gen_incremental_proof(t = %Tree{}, i, j) do
     _skeleton(t, i, j)
   end
 
-  defp _skeleton(t = %Merkle.Tree{}, i, j) do
+  defp _skeleton(t = %Tree{}, i, j) do
     pi = path(t, i)
     pj = path(t, j)
     #_skel(t.root, pi, pj)
